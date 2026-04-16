@@ -337,20 +337,22 @@ public class ContentSpawner : MonoBehaviour
         mat.SetColor("_ShallowColor", new Color(0.10f, 0.55f, 0.80f, 1f));
         mat.SetColor("_DeepColor",    new Color(0.02f, 0.15f, 0.40f, 1f));
 
-        var surface = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        // Plane 프리미티브 사용 (10×10 쿼드 = 121 버텍스 → 버텍스 웨이브 표현 가능)
+        var surface = GameObject.CreatePrimitive(PrimitiveType.Plane);
         surface.name = "WaterSurface";
         var col = surface.GetComponent<Collider>();
         if (col != null) Destroy(col);
 
         surface.transform.SetParent(_anchorRoot.transform);
-        surface.transform.localPosition = new Vector3(0f, waterYOffset - waterThickness * 0.5f, 0f);
+        surface.transform.localPosition = new Vector3(0f, waterYOffset, 0f);
         surface.transform.localRotation = Quaternion.identity;
-        float footprint = 0.8f * waterScale;
-        surface.transform.localScale = new Vector3(footprint, waterThickness, footprint);
+        // Unity Plane = 10유닛 기본. scale 0.1 × waterScale → 1m × waterScale
+        float s = 0.1f * waterScale;
+        surface.transform.localScale = new Vector3(s, 1f, s);
         surface.GetComponent<MeshRenderer>().material = mat;
 
         _spawnedObjects.Add(surface);
-        Debug.Log($"[ContentSpawner] WaterSurface(Cube/WaterQuest3) 스폰: footprint={footprint:F3}m");
+        Debug.Log($"[ContentSpawner] WaterSurface(Plane/WaterQuest3) 스폰: size={waterScale}m");
     }
 
     /// <summary>

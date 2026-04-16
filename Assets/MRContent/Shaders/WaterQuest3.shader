@@ -13,8 +13,8 @@ Shader "Custom/WaterQuest3"
         _SpecularColor  ("Specular Color",  Color) = (0.90, 0.96, 1.00, 1.0)
 
         [Header(Waves)]
-        _WaveFrequency  ("Wave Frequency",  Float)       = 1.75
-        _WaveScale      ("Wave Scale",      Float)       = 0.05
+        _WaveFrequency  ("Wave Frequency",  Float)       = 20.0
+        _WaveScale      ("Wave Scale",      Float)       = 0.008
         _WaveSpeed      ("Wave Speed",      Float)       = 1.50
 
         [Header(Normal Map)]
@@ -114,17 +114,32 @@ Shader "Custom/WaterQuest3"
 
                 float3 posWS = TransformObjectToWorld(input.positionOS.xyz);
 
-                // Vertex displacement removed: small plane (0.8m) is shorter than
-                // one wavelength, making the whole mesh bob as a rigid body.
-                // Visual ripple is handled by the scrolling normal map in the fragment shader.
+                // ── Vertex wave displacement (3-wave Gerstner-style sine) ──────
+                // Frequencies tuned for tabletop scale (0.6–1 m plane).
+                // Three waves at different angles for organic, non-repeating motion.
+                float spd = _Time.y * _WaveSpeed;
+                float f   = _WaveFrequency;
+
+                float w1 = sin(posWS.x *  f           + spd          ) * _WaveScale;
+                float w2 = sin(posWS.z *  f * 0.73f   + spd * 1.27f  ) * _WaveScale * 0.65f;
+                float w3 = sin((posWS.x + posWS.z) * f * 0.53f + spd * 0.85f) * _WaveScale * 0.45f;
+                posWS.y += w1 + w2 + w3;
+
+                // Analytic surface normal from wave gradient (for correct lighting)
+                float dydx = cos(posWS.x *  f           + spd          ) * _WaveScale * f
+                           + cos((posWS.x + posWS.z) * f * 0.53f + spd * 0.85f) * _WaveScale * 0.45f * f * 0.53f;
+                float dydz = cos(posWS.z *  f * 0.73f   + spd * 1.27f  ) * _WaveScale * 0.65f * f * 0.73f
+                           + cos((posWS.x + posWS.z) * f * 0.53f + spd * 0.85f) * _WaveScale * 0.45f * f * 0.53f;
+                float3 waveNormalWS = normalize(float3(-dydx, 1.0f, -dydz));
 
                 output.positionCS   = TransformWorldToHClip(posWS);
                 output.positionWS   = posWS;
                 output.uv           = input.uv;
                 output.vertexColor  = input.color;
 
+                // Use wave-derived world normal; keep mesh tangent/bitangent for normal map
+                output.normalWS    = waveNormalWS;
                 VertexNormalInputs ni = GetVertexNormalInputs(input.normalOS, input.tangentOS);
-                output.normalWS    = ni.normalWS;
                 output.tangentWS   = ni.tangentWS;
                 output.bitangentWS = ni.bitangentWS;
 
@@ -247,7 +262,20 @@ Shader "Custom/WaterQuest3"
                 UNITY_TRANSFER_INSTANCE_ID(input, output);
 
                 float3 posWS   = TransformObjectToWorld(input.positionOS.xyz);
-                float3 normalWS = TransformObjectToWorldNormal(input.normalOS);
+
+                // Match vertex displacement from ForwardLit pass
+                float spd = _Time.y * _WaveSpeed;
+                float f   = _WaveFrequency;
+                float w1 = sin(posWS.x * f          + spd         ) * _WaveScale;
+                float w2 = sin(posWS.z * f * 0.73f  + spd * 1.27f) * _WaveScale * 0.65f;
+                float w3 = sin((posWS.x + posWS.z) * f * 0.53f + spd * 0.85f) * _WaveScale * 0.45f;
+                posWS.y += w1 + w2 + w3;
+
+                float dydx = cos(posWS.x * f          + spd         ) * _WaveScale * f
+                           + cos((posWS.x + posWS.z) * f * 0.53f + spd * 0.85f) * _WaveScale * 0.45f * f * 0.53f;
+                float dydz = cos(posWS.z * f * 0.73f  + spd * 1.27f) * _WaveScale * 0.65f * f * 0.73f
+                           + cos((posWS.x + posWS.z) * f * 0.53f + spd * 0.85f) * _WaveScale * 0.45f * f * 0.53f;
+                float3 normalWS = normalize(float3(-dydx, 1.0f, -dydz));
 
                 #if _CASTING_PUNCTUAL_LIGHT_SHADOW
                     float3 lightDir = normalize(_LightPosition - posWS);
