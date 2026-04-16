@@ -29,6 +29,12 @@ Shader "Custom/WaterQuest3"
         [Header(Appearance)]
         _Smoothness     ("Smoothness",      Range(0,1))  = 0.85
         _FresnelPower   ("Fresnel Power",   Range(0.5,8))= 2.00
+
+        [Header(Circle Fade)]
+        [Tooltip(Normalized radius where fade begins. 0.6 = solid up to 60 percent of half-width.)]
+        _CircleFadeStart("Circle Fade Start", Range(0.1, 1.0)) = 0.60
+        [Tooltip(Normalized radius where fully clipped. 1.0 = edge of plane.)]
+        _CircleFadeEnd  ("Circle Fade End",   Range(0.1, 1.0)) = 0.95
     }
 
     SubShader
@@ -77,6 +83,8 @@ Shader "Custom/WaterQuest3"
                 float  _FoamNoise;
                 float  _Smoothness;
                 float  _FresnelPower;
+                float  _CircleFadeStart;
+                float  _CircleFadeEnd;
             CBUFFER_END
 
             TEXTURE2D(_NormalMap);
@@ -196,6 +204,18 @@ Shader "Custom/WaterQuest3"
 
                 finalRGB = finalRGB * mainLight.color * NdotL
                          + _SpecularColor.rgb * spec * mainLight.color;
+
+                // ── Circular radial fade (dithered clip — passthrough 호환) ────
+                // UV 중심에서 거리를 구해 원형 페이드 마스크를 만듭니다.
+                // Alpha blend 대신 hash 기반 픽셀 폐기를 사용해 passthrough와 호환됩니다.
+                float2 centeredUV  = input.uv - 0.5f;
+                float  radialDist  = length(centeredUV) * 2.0f;  // 0=중심, 1=모서리
+                float  radialAlpha = 1.0f - smoothstep(_CircleFadeStart, _CircleFadeEnd, radialDist);
+
+                // 스크린 픽셀 좌표 기반 pseudo-random hash → ordered dithering
+                float2 sp   = input.positionCS.xy;
+                float  hash = frac(sin(dot(sp, float2(12.9898f, 78.233f))) * 43758.5453f);
+                clip(radialAlpha - hash);
 
                 return float4(finalRGB, 1.0);
             }
