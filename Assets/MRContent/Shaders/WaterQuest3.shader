@@ -31,9 +31,7 @@ Shader "Custom/WaterQuest3"
         _FresnelPower   ("Fresnel Power",   Range(0.5,8))= 2.00
 
         [Header(Circle Fade)]
-        [Tooltip(Normalized radius where fade begins. 0.6 = solid up to 60 percent of half-width.)]
         _CircleFadeStart("Circle Fade Start", Range(0.1, 1.0)) = 0.60
-        [Tooltip(Normalized radius where fully clipped. 1.0 = edge of plane.)]
         _CircleFadeEnd  ("Circle Fade End",   Range(0.1, 1.0)) = 0.95
     }
 
